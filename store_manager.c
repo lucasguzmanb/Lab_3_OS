@@ -12,9 +12,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+struct element *operations; // contain all the operations done, read from file.txt
+queue *shared_buffer;
+int profits = 0;
+int product_stock[5] = {0};
+
 int main(int argc, const char *argv[]) {
-    int profits = 0;
-    int product_stock[5] = {0};
 
     // check if arguments are correct
     if (argc != 5) { // name of program + 4 arguments
@@ -44,7 +47,8 @@ int main(int argc, const char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    struct element *operations = malloc(num_ops * sizeof(struct element));
+    operations = malloc(num_ops * sizeof(struct element));
+    shared_buffer = queue_init(num_ops); // initialise queue
 
     for (int i = 0; i < num_ops; i++) {
         int product_id, units;
@@ -65,6 +69,10 @@ int main(int argc, const char *argv[]) {
         operations[i].units = units;
     }
 
+    for (int i = 0; i < num_ops; i++) {
+        printf("%d %d %d\n", operations[i].product_id, operations[i].op, operations[i].units);
+    }
+
     // Output
     printf("Total: %d euros\n", profits);
     printf("Stock:\n");
@@ -77,4 +85,4 @@ int main(int argc, const char *argv[]) {
     free(operations);
 
     return 0;
-    }
+}

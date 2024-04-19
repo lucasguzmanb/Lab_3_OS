@@ -10,8 +10,11 @@ struct element {
 };
 
 typedef struct queue {
-    // Define the struct yourself
-    int param1;
+    int max_size;
+    int size;
+    int head;
+    int tail;
+    struct element *elements;
 } queue;
 
 queue *queue_init(int size);
