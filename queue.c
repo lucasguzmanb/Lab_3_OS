@@ -21,11 +21,12 @@ int queue_put(queue *q, struct element *x) {
 }
 
 // To Dequeue an element.
-struct element *queue_get(queue *q) {
+// comentado hasta hacerlo para poder ir compilando
+/* struct element *queue_get(queue *q) {
     struct element *element;
 
     return element;
-}
+} */
 
 // To check queue state
 int queue_empty(queue *q) {
