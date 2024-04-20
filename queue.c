@@ -19,11 +19,13 @@ queue *queue_init(int size) {
 
 // To Enqueue an element
 int queue_put(queue *q, struct element *x) {
-    if (!queue_full(q)) { // if not full
+    if (queue_empty(q)){
         q->elements[q->tail] = *x;
+    } else {
         q->tail = (q->tail + 1) % q->max_size;
-        q->size++;
+        q->elements[q->tail];
     }
+    q->size++;
     return 0;
 }
 
