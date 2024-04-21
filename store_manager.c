@@ -17,6 +17,33 @@ queue *shared_buffer;
 int profits = 0;
 int product_stock[5] = {0};
 
+void Producers(file_name){
+    int thread_id = *((int *)arg);
+
+    // calculate the range of operations to be processed by the producer thread
+    int start = thread_id * (num_ops / num_producers);
+    int end = (thread_id == num_producers - 1) ? num_ops : (thread_id + 1) * (num_ops / num_producers);
+
+    for (int i = start; i < end; i++) {
+        // obtain the operation data
+        int product_id = operations[i].product_id;
+        int op = operations[i].op;
+        int units = operations[i].units;
+
+        // create an element with the operation data to insert in the queue
+        struct element *new_element = malloc(sizeof(struct element));
+        new_element->product_id = product_id;
+        new_element->op = op;
+        new_element->units = units;
+
+        // insert element in the shared circular queue
+        queue_push(shared_buffer, new_element);
+    }
+    //exit queue?
+
+}
+
+
 int main(int argc, const char *argv[]) {
 
     // check if arguments are correct
