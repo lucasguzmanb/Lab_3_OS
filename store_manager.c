@@ -21,12 +21,8 @@ queue *shared_buffer;
 int profits = 0;
 int product_stock[5] = {0};
 const int prices[5][2] = {{2, 3}, {5, 10}, {15, 20}, {25, 40}, {100, 125}}; // prices[i][0] = buy cost, prices[i][1] = sale price
-/* pthread_cond_t non_full;                                                    // control wether shared buffer is full
+pthread_cond_t non_full;                                                    // control wether shared buffer is full
 pthread_cond_t non_empty;                                                   // control wether shared buffer is empty
-pthread_cond_t can_buy;   */
-// control wether there is stock of the product consumer want to buy
-sem_t empty_spaces;
-sem_t filled_spaces;
 pthread_mutex_t mutex;
 int num_ops; // first line of file
 
@@ -39,19 +35,16 @@ void *producers_routine(void *args) {
 
     while (start < end) {
         struct element x = operations[start]; // take operation element from operations list
-
-        sem_wait(&empty_spaces);
         // Critical part: store operation in shared buffer
         pthread_mutex_lock(&mutex);
 
-        /*         while (queue_full(shared_buffer)) {
-                    pthread_cond_wait(&non_full, &mutex); // unlock mutex and wait until we can add elements
-                } */
+        while (queue_full(shared_buffer)) {
+            pthread_cond_wait(&non_full, &mutex); // unlock mutex and wait until we can add elements
+        }
 
         queue_put(shared_buffer, &x);
-        /*         pthread_cond_signal(&non_empty); // unblock threads that are waiting for the queue to be non empty*/
+        pthread_cond_signal(&non_empty); // unblock threads that are waiting for the queue to be non empty
         pthread_mutex_unlock(&mutex);
-        sem_post(&filled_spaces); // increment filled spaces
         // end of critical part
 
         start++;
@@ -67,41 +60,31 @@ void *consumers_routine(void *args) {
     while (processed_ops < total_ops) {
         printf("consumer procesa operacion %d y espera al semaforo\n", processed_ops);
         printf("ops: %d, total ops: %d\n", processed_ops, total_ops);
-        if (processed_ops != total_ops - 1) {
-            sem_wait(&filled_spaces);
-        }
-        printf("semaforo pasado\n");
 
         struct element *x;
         // Critical part: read from shared buffer & process
         pthread_mutex_lock(&mutex);
         printf("multex blocked\n");
-        /*         while (queue_empty(shared_buffer)) {
-                    pthread_cond_wait(&non_empty, &mutex); // unlock mutex and wait until we can read elements
-                } */
+        while (queue_empty(shared_buffer)) {
+            pthread_cond_wait(&non_empty, &mutex); // unlock mutex and wait until we can read elements
+        }
 
         x = queue_get(shared_buffer);
-        // pthread_cond_signal(&non_full); // unblock all threads that are waiting for the queue to be non full
+        pthread_cond_signal(&non_full); // unblock all threads that are waiting for the queue to be non full
         // process operation
         if (x->op == 1) { // PURCHASE
             product_stock[x->product_id - 1] += x->units;
             profits -= (prices[x->product_id - 1][0]) * x->units; // substract buy cost from profit
 
         } else if (x->op == 2) { // SALE
-                                 /*
-                                             while (product_stock[x->product_id - 1] <= x->units) {
-                                                 pthread_cond_wait(&can_buy, &mutex); // unlock mutex and wait until we can process the sale (we need stock)
-                                             } */
 
             product_stock[x->product_id - 1] -= x->units;         // decrement stock
             profits += (prices[x->product_id - 1][1]) * x->units; // add the profit of the sale
-            // pthread_cond_signal(&can_buy);
         }
         printf("%d %d %d\n", x->product_id, x->op, x->units);
         printf("multex unblocked\n");
         pthread_mutex_unlock(&mutex);
         // end of critical part
-        sem_post(&empty_spaces);
         printf("terminamos de procesar op %d\n", processed_ops);
 
         processed_ops++;
@@ -179,11 +162,9 @@ int main(int argc, const char *argv[]) {
     int ranges[num_producers][2]; // to store the ranges from which each producer thread must read
 
     // initialise conditional vbles
-    /*     pthread_cond_init(&non_full, NULL);
-        pthread_cond_init(&non_empty, NULL);
-        pthread_cond_init(&can_buy, NULL); */
-    sem_init(&empty_spaces, 0, buff_size);
-    sem_init(&filled_spaces, 0, 0);
+    pthread_cond_init(&non_full, NULL);
+    pthread_cond_init(&non_empty, NULL);
+
     // initialise mutex
     pthread_mutex_init(&mutex, NULL);
 
@@ -224,11 +205,8 @@ int main(int argc, const char *argv[]) {
     printf("  Product 5: %d\n", product_stock[4]);
 
     // destroy mutex & cond vbles
-    /*     pthread_cond_destroy(&non_empty);
-        pthread_cond_destroy(&non_full);
-        pthread_cond_destroy(&can_buy); */
-    sem_destroy(&empty_spaces);
-    sem_destroy(&filled_spaces);
+    pthread_cond_destroy(&non_empty);
+    pthread_cond_destroy(&non_full);
     pthread_mutex_destroy(&mutex);
 
     queue_destroy(shared_buffer);
