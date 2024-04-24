@@ -1,11 +1,8 @@
 // SSOO-P3 23/24
 
-// TODO: ahora mismo no funciona, si quitas los pthread_join por lo menos llega a imprimir pero a veces se quedan como 4 hilos abiertos
-
 #include "queue.h"
 #include <fcntl.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,27 +25,26 @@ int num_ops;                                                                // f
 int consumer_processed_ops = 0;
 
 void *producers_routine(void *args) {
+
     int *range = (int *)args; // convert void pointer to integer pointer
-    printf("hilo producer con id %lu entra\n", (unsigned long)pthread_self());
-    printf("estado actual de la queue:\n");
-    print_queue(shared_buffer);
+
     // obtain range to read
     int start = range[0];
     int end = range[1];
-    printf("hilo producer %lu tiene start: %d end: %d\n", (unsigned long)pthread_self(), start, end);
+
     while (start <= end) {
         struct element x = operations[start]; // take operation element from operations list
+
         // Critical part: store operation in shared buffer
         pthread_mutex_lock(&mutex);
-        printf("mutex bloqueado por producer\n");
+
         while (queue_full(shared_buffer)) {
             pthread_cond_wait(&non_full, &mutex); // unlock mutex and wait until we can add elements
         }
 
         queue_put(shared_buffer, &x);
         pthread_cond_broadcast(&non_empty); // unblock threads that are waiting for the queue to be non empty
-        printf("size queue %d\n", shared_buffer->size);
-        print_queue(shared_buffer);
+
         pthread_mutex_unlock(&mutex);
         // end of critical part
 
@@ -58,26 +54,21 @@ void *producers_routine(void *args) {
 }
 
 void *consumers_routine() {
-    printf("hilo consumer con ID: %lu entra\n", (unsigned long)pthread_self());
-    while (consumer_processed_ops < num_ops) {
-        consumer_processed_ops++;
-        printf("ops: %d, total ops: %d\n", consumer_processed_ops, num_ops);
 
-        struct element *x;
-        // Critical part: read from shared buffer
+    while (consumer_processed_ops < num_ops) {
+
+        // Critical: read from shared queue, process operation & update global vbles
         pthread_mutex_lock(&mutex);
-        // printf("multex blocked\n");
+        consumer_processed_ops++;
+        struct element *x;
+
         while (queue_empty(shared_buffer)) {
             pthread_cond_wait(&non_empty, &mutex); // unlock mutex and wait until we can read elements
         }
 
         x = queue_get(shared_buffer);
         pthread_cond_broadcast(&non_full); // unblock all threads that are waiting for the queue to be non full
-        // printf("multex unblocked\n");
-        // printf("terminamos de procesar op %d\n", consumer_processed_ops);
-        // end of critical part
 
-        // Critical: process operation & update global vbles
         if (x->op == 1) { // PURCHASE
             product_stock[x->product_id - 1] += x->units;
             profits -= (prices[x->product_id - 1][0]) * x->units; // substract buy cost from profit
@@ -87,12 +78,11 @@ void *consumers_routine() {
             product_stock[x->product_id - 1] -= x->units;         // decrement stock
             profits += (prices[x->product_id - 1][1]) * x->units; // add the profit of the sale
         }
-        printf("%d %d %d\n", x->product_id, x->op, x->units);
-        print_queue(shared_buffer);
+
         pthread_mutex_unlock(&mutex);
+        // end of critical part
     }
 
-    printf("hilo consumer con ID: %lu sale con %d operaciones procesadas\n", (unsigned long)pthread_self(), consumer_processed_ops);
     pthread_exit(0);
 }
 
@@ -152,11 +142,7 @@ int main(int argc, const char *argv[]) {
         free(op_name);
     }
 
-    // print all operations (borrar al acabar)
-    // for (int i = 0; i < num_ops; i++) {
-    //     printf("%d %d %d\n", operations[i].product_id, operations[i].op, operations[i].units);
-    // }
-
+    // to store the threads
     pthread_t producers_threads[num_producers];
     pthread_t consumers_threads[num_consumers];
 
@@ -175,15 +161,23 @@ int main(int argc, const char *argv[]) {
 
         ranges[i][0] = i * block_size;           // initial position
         ranges[i][1] = (i + 1) * block_size - 1; // ending position
-        if (i == num_producers - 1) {            // last thread
-            ranges[i][1] = num_ops - 1;          // if last thread, ending position is last position of array
+
+        if (i == num_producers - 1) {   // last thread
+            ranges[i][1] = num_ops - 1; // if last thread, ending position is last position of array
         }
-        pthread_create(&producers_threads[i], NULL, &producers_routine, (void *)ranges[i]);
+
+        if (pthread_create(&producers_threads[i], NULL, &producers_routine, (void *)ranges[i]) != 0) {
+            perror("Error creating thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // create consumers
     for (int i = 0; i < num_consumers; i++) {
-        pthread_create(&consumers_threads[i], NULL, &consumers_routine, NULL);
+        if (pthread_create(&consumers_threads[i], NULL, &consumers_routine, NULL) != 0) {
+            perror("Error creating thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // wait for all threads
