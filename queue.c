@@ -32,7 +32,7 @@ int queue_put(queue *q, struct element *x) {
 // To Dequeue an element
 struct element *queue_get(queue *q) {
     if (!queue_empty(q)) { // if not empty
-        struct element *element = &q->elements[q->head];
+        struct element *element = &(q->elements[q->head]);
         q->head = (q->head + 1) % q->max_size;
         q->size--;
         return element;
@@ -58,4 +58,12 @@ int queue_destroy(queue *q) {
         free(q);
     }
     return 0;
+}
+
+void print_queue(queue *q) {
+    printf("Elementos en la queue\n");
+    for (int i = 0; i < q->size; i++) {
+        struct element *x = &(q->elements[(q->head + i) % q->max_size]);
+        printf("%d %s %d\n", x->product_id, x->op == 1 ? "Purchase" : "Sale", x->units);
+    }
 }
