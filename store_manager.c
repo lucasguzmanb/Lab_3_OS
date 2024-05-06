@@ -90,7 +90,7 @@ int main(int argc, const char *argv[]) {
 
     // check if arguments are correct
     if (argc != 5 || atoi(argv[2]) <= 0 || atoi(argv[3]) <= 0 || atoi(argv[4]) <= 0) { // name of program + 4 arguments (numbers > 0)
-        printf("[ERROR]: usage ./store_manager <file_name><num_producers><num_consumers><buff_size>");
+        printf("[ERROR]: usage ./store_manager <file_name><num_producers><num_consumers><buff_size>\n");
         exit(EXIT_FAILURE);
     }
 
