@@ -132,7 +132,7 @@ int main(int argc, const char *argv[]) {
         }
 
         if (strcmp(op_name, "PURCHASE") != 0 && strcmp(op_name, "SALE") != 0) { // if not "PURCHASE" or "SALE"
-            perror("Some operation is not valid");
+            printf("Some operation is not valid\n");
             exit(EXIT_FAILURE);
         }
 
