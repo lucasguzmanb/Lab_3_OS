@@ -16,13 +16,14 @@
 struct element *operations; // contain all the operations done, read from file.txt
 queue *shared_buffer;
 int profits = 0;
-int product_stock[5] = {0};
+int product_stock[5] = {0, 0, 0, 0, 0};
 const int prices[5][2] = {{2, 3}, {5, 10}, {15, 20}, {25, 40}, {100, 125}}; // prices[i][0] = buy cost, prices[i][1] = sale price
 pthread_cond_t non_full;                                                    // control wether shared buffer is full
 pthread_cond_t non_empty;                                                   // control wether shared buffer is empty
 pthread_mutex_t mutex;                                                      // for when reading/writing from shared queue
 int num_ops;                                                                // first line of file
 int consumer_processed_ops = 0;
+int end_prods = 0;
 
 void *producers_routine(void *args) {
 
@@ -55,15 +56,27 @@ void *producers_routine(void *args) {
 
 void *consumers_routine() {
 
-    while (consumer_processed_ops < num_ops) {
+    while (1) {
 
         // Critical: read from shared queue, process operation & update global vbles
         pthread_mutex_lock(&mutex);
-        consumer_processed_ops++;
         struct element *x;
 
         while (queue_empty(shared_buffer)) {
+
+            if (end_prods){
+                pthread_mutex_unlock(&mutex);
+                pthread_exit(0);
+            }
+
             pthread_cond_wait(&non_empty, &mutex); // unlock mutex and wait until we can read elements
+
+            if (consumer_processed_ops >= num_ops) {
+                end_prods = 1;
+                pthread_mutex_unlock(&mutex);
+                pthread_cond_broadcast(&non_empty); // unblock all consumer threads that are waiting for the queue to be non full
+                pthread_exit(0);
+            }
         }
 
         x = queue_get(shared_buffer);
@@ -77,6 +90,13 @@ void *consumers_routine() {
 
             product_stock[x->product_id - 1] -= x->units;         // decrement stock
             profits += (prices[x->product_id - 1][1]) * x->units; // add the profit of the sale
+        }
+
+        consumer_processed_ops++;
+
+        if (consumer_processed_ops >= num_ops) {
+            end_prods = 1;
+            pthread_cond_broadcast(&non_empty); // unblock all consumer threads that are waiting for the queue to be non full
         }
 
         pthread_mutex_unlock(&mutex);
